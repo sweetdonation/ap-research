@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ============================================================
+       APP NAME — change the title tag text to rename the browser tab
+       ============================================================ -->
+  <title>Reel</title>
+
+  <style>
+    /* ── Google Fonts (loaded inline via @import — no CDN JS needed) ── */
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap');
+
+    /* ── Design tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg:          #0a0a0a;
+      --surface:     #141414;
+      --surface2:    #1e1e1e;
+      --border:      rgba(255,255,255,0.07);
+      --text:        #f0f0f0;
+      --text-muted:  #888;
+      --accent:      #e8ff47;        /* electric lime — stands out on dark */
+      --accent2:     #ff5c5c;
+      --phone-w:     390px;
+      --phone-h:     844px;
+      --radius:      36px;
+      --icon-size:   44px;
+    }
+
+    /* ── Reset / base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow: hidden;           /* outer page never scrolls */
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Outer layout: nav + centered phone ────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      position: relative;
+    }
+
+    /* ── Top navigation bar ─────────────────────────────────────── */
+    #topbar {
+      width: 100%;
+      max-width: var(--phone-w);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 10px;
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    /* ============================================================
+       APP NAME — change the text inside the <span id="app-name">
+       tag in the HTML body to rename the app logo/wordmark
+       ============================================================ */
+    #app-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      letter-spacing: -0.5px;
+      color: var(--accent);
+      user-select: none;
+    }
+
+    #topbar-icons {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    #topbar-icons svg {
+      width: 22px; height: 22px;
+      stroke: var(--text-muted);
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      cursor: default;
+      transition: stroke 0.2s;
+    }
+    #topbar-icons svg:hover { stroke: var(--text); }
+
+    /* ── Phone frame ────────────────────────────────────────────── */
+    #phone-frame {
+      position: relative;
+      width: min(var(--phone-w), 100vw);
+      /* Height fills remaining vertical space, capped at phone-h */
+      height: min(calc(100vh - 60px), var(--phone-h));
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #000;
+      box-shadow:
+        0 0 0 1.5px rgba(255,255,255,0.08),
+        0 30px 80px rgba(0,0,0,0.7),
+        0 0 120px rgba(232,255,71,0.04);
+      flex-shrink: 0;
+    }
+
+    /* subtle notch decoration */
+    #phone-frame::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90px; height: 6px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 999px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* ── Video feed (scrollable container inside phone) ─────────── */
+    #feed {
+      width: 100%;
+      height: 100%;
+      overflow-y: scroll;
+      overflow-x: hidden;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;          /* Firefox */
+      -ms-overflow-style: none;       /* IE/Edge */
+      scroll-behavior: smooth;
+    }
+    #feed::-webkit-scrollbar { display: none; }
+
+    /* ── Individual post / slide ────────────────────────────────── */
+    .post {
+      position: relative;
+      width: 100%;
+      height: 100%;               /* exactly one screen-height tall */
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* ── Video element ──────────────────────────────────────────── */
+    .post video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ── Gradient overlay (bottom) so text is always readable ───── */
+    .post-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to top,
+        rgba(0,0,0,0.75) 0%,
+        rgba(0,0,0,0.18) 35%,
+        transparent 60%
+      );
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ── Side action icons (decorative — non-functional) ────────── */
+    .side-actions {
+      position: absolute;
+      right: 14px;
+      bottom: 90px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+      z-index: 5;
+    }
+
+    .action-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: default;
+      user-select: none;
+      opacity: 0.85;
+    }
+
+    .action-btn .icon-circle {
+      width: var(--icon-size);
+      height: var(--icon-size);
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .action-btn .icon-circle:hover {
+      background: rgba(255,255,255,0.22);
+      transform: scale(1.08);
+    }
+
+    .action-btn svg {
+      width: 20px; height: 20px;
+      stroke: #fff;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .action-btn .action-count {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.7);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Profile avatar in side panel ───────────────────────────── */
+    .avatar-wrap {
+      position: relative;
+      margin-bottom: 4px;
+    }
+    .avatar-img {
+      width: var(--icon-size);
+      height: var(--icon-size);
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--accent);
+      display: block;
+      background: var(--surface2);
+    }
+    /* follow "+" badge */
+    .follow-badge {
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 18px; height: 18px;
+      background: var(--accent2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #fff;
+      border: 1.5px solid #000;
+      line-height: 1;
+    }
+
+    /* ── Bottom caption / user info ─────────────────────────────── */
+    .post-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 68px;      /* leave room for side icons */
+      padding: 0 14px 22px;
+      z-index: 5;
+    }
+
+    .post-username {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.01em;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .post-username::before {
+      content: '@';
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .post-caption {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.82);
+      line-height: 1.45;
+      max-width: 260px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Music / audio tag (purely decorative) ───────────────────── */
+    .post-music {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.68rem;
+      color: rgba(255,255,255,0.5);
+    }
+    .post-music svg {
+      width: 12px; height: 12px;
+      stroke: rgba(255,255,255,0.5);
+      fill: none;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    /* ── Progress dots (outside the phone, on the side) ─────────── */
+    #progress-dots {
+      position: fixed;
+      right: calc(50% - var(--phone-w)/2 - 28px);
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 100;
+    }
+    @media (max-width: 500px) {
+      #progress-dots { display: none; }
+    }
+
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      transition: background 0.3s, transform 0.3s;
+      cursor: pointer;
+    }
+    .dot.active {
+      background: var(--accent);
+      transform: scale(1.5);
+    }
+
+    /* ── Swipe hint animation (shows briefly on load) ─────────────── */
+    #swipe-hint {
+      position: absolute;
+      bottom: 50%;
+      left: 50%;
+      transform: translate(-50%, 50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      opacity: 0;
+      animation: hint-fade 2.5s ease 1.2s forwards;
+      pointer-events: none;
+      z-index: 20;
+    }
+    #swipe-hint svg {
+      width: 28px; height: 28px;
+      stroke: rgba(255,255,255,0.6);
+      fill: none;
+      stroke-width: 1.8;
+      animation: hint-bounce 0.7s ease-in-out 1.2s 3;
+    }
+    #swipe-hint span {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    @keyframes hint-fade {
+      0%   { opacity: 0; }
+      15%  { opacity: 1; }
+      75%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    @keyframes hint-bounce {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    /* ── Subtle ambient glow behind phone on desktop ─────────────── */
+    #ambient {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(
+        ellipse 600px 400px at 50% 55%,
+        rgba(232,255,71,0.03) 0%,
+        transparent 70%
+      );
+    }
+
+    /* ── Responsive: on narrow screens, remove border radius ─────── */
+    @media (max-width: 420px) {
+      #phone-frame {
+        border-radius: 0;
+        box-shadow: none;
+        width: 100vw;
+        height: calc(100vh - 54px);
+      }
+      #topbar { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="ambient"></div>
+
+<div id="app">
+
+  <!-- ── Top bar ──────────────────────────────────────────────────── -->
+  <nav id="topbar">
+
+    <!-- ============================================================
+         APP NAME — edit the text between the <span> tags below
+         to change the wordmark that appears at the top of the app.
+         ============================================================ -->
+    <span id="app-name">Reel</span>
+
+    <!-- Decorative top-bar icons (non-functional) -->
+    <div id="topbar-icons">
+      <!-- Search icon -->
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/>
+        <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+      </svg>
+      <!-- Inbox icon -->
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    </div>
+  </nav>
+
+  <!-- ── Phone frame ──────────────────────────────────────────────── -->
+  <div id="phone-frame">
+
+    <!-- Swipe hint (fades away automatically) -->
+    <div id="swipe-hint">
+      <svg viewBox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+      <span>Swipe</span>
+    </div>
+
+    <!-- Feed — posts are injected here by JavaScript -->
+    <div id="feed"></div>
+
+  </div><!-- /phone-frame -->
+
+</div><!-- /app -->
+
+<!-- Progress dots injected by JS -->
+<div id="progress-dots"></div>
+
+
+<script>
+  /* ================================================================
+     ██████╗ ███████╗███████╗██╗
+     ██╔══██╗██╔════╝██╔════╝██║
+     ██████╔╝█████╗  █████╗  ██║
+     ██╔══██╗██╔══╝  ██╔══╝  ██║
+     ██║  ██║███████╗███████╗███████╗
+     ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
+
+     SHORT-FORM VIDEO APP — AP RESEARCH PROJECT
+     ================================================================
+
+     HOW TO CUSTOMIZE:
+     ─────────────────
+     1. Edit the `posts` array below.
+     2. Each object has three fields:
+          video    → path to your mp4 file
+          username → shown as @username below the video
+          caption  → short description shown below the username
+
+     ADDING / REMOVING VIDEOS:
+     ─────────────────────────
+     • To add a video: copy one object block and paste it inside
+       the array, separated by a comma.
+     • To remove a video: delete the whole { … } object block
+       (and its trailing comma).
+     • There is no hard limit — any number of posts will work.
+
+     VIDEO FILES:
+     ────────────
+     • Place your .mp4 files in a folder called  videos/
+       inside the same directory as this index.html file.
+     • Then replace the file paths below (e.g. "videos/video1.mp4")
+       with your actual file names.
+     ================================================================ */
+
+  const posts = [
+
+    /* ── POST 1 — Menstrual Flow ──────────────────────────────────── */
+    {
+      video:    "videos/video1.mp4",
+      name:     "Maya Chen",
+      username: "mayacycles",
+      caption:  "Flow can change from month to month. Heavier or lighter does not always mean something is wrong."
+    },
+
+    /* ── POST 2 — Late or Missed Periods ─────────────────────────── */
+    {
+      video:    "videos/video2.mp4",
+      name:     "Aaliyah Brooks",
+      username: "aaliyah.health",
+      caption:  "Late periods can happen for a lot of reasons, especially during the teen years when cycles are still changing."
+    },
+
+    /* ── POST 3 — Menstrual Cramping ─────────────────────────────── */
+    {
+      video:    "videos/video3.mp4",
+      name:     "Sofia Ramirez",
+      username: "sofiaseries",
+      caption:  "Cramps happen when the uterus contracts. The intensity can look different from person to person."
+    },
+
+    /* ── POST 4 — Discharge Amount ───────────────────────────────── */
+    {
+      video:    "videos/video4.mp4",
+      name:     "Nia Patel",
+      username: "niaknowshealth",
+      caption:  "Discharge is a normal body process. The amount and texture can shift across the month."
+    },
+
+    /* ── POST 5 — Menstrual Blood Color ──────────────────────────── */
+    {
+      video:    "videos/video5.mp4",
+      name:     "Lena Park",
+      username: "lenaexplains",
+      caption:  "Period blood can vary in color from bright red to brown depending on flow and timing."
+    }
+
+  ]; /* ←── end of posts array */
+
+
+  /* ================================================================
+     DECORATIVE FAKE STATS — these are the numbers shown next to the
+     like / share / save icons on each post. They are purely visual.
+     You can change these numbers if you like, but they do nothing.
+     ================================================================ */
+  function randomStat() {
+    const suffixes = ['K', 'K', 'K', 'M'];
+    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+    if (suffix === 'M') return (Math.random() * 2 + 0.1).toFixed(1) + 'M';
+    return (Math.floor(Math.random() * 900) + 50) + 'K';
+  }
+
+
+  /* ================================================================
+     BUILD THE FEED — do not edit below unless you know what you're doing
+     ================================================================ */
+
+  const feed        = document.getElementById('feed');
+  const dotsWrapper = document.getElementById('progress-dots');
+
+  posts.forEach((post, index) => {
+
+    /* ── Create post container ──────────────────────────────────── */
+    const el = document.createElement('div');
+    el.className = 'post';
+    el.dataset.index = index;
+
+    /* ── Video element ──────────────────────────────────────────── */
+    const video = document.createElement('video');
+    video.src      = post.video;
+    video.loop     = true;
+    video.muted    = true;       /* muted so autoplay is allowed by browsers */
+    video.playsInline = true;
+    video.controls = true;
+    video.preload  = 'metadata'; /* only load metadata until visible */
+    el.appendChild(video);
+
+    /* ── Gradient overlay ───────────────────────────────────────── */
+    const overlay = document.createElement('div');
+    overlay.className = 'post-overlay';
+    el.appendChild(overlay);
+
+    /* ── Side action icons (decorative) ────────────────────────── */
+    const sideActions = document.createElement('div');
+    sideActions.className = 'side-actions';
+    sideActions.innerHTML = `
+
+      <!-- Decorative avatar -->
+      <div class="action-btn avatar-wrap">
+        <div class="avatar-img" style="background:hsl(${index * 72}, 45%, 30%)"></div>
+        <div class="follow-badge">+</div>
+      </div>
+
+      <!-- Like icon (decorative) -->
+      <div class="action-btn">
+        <div class="icon-circle">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </div>
+        <span class="action-count">${randomStat()}</span>
+      </div>
+
+      <!-- Comment icon (decorative — no comments in this app) -->
+      <div class="action-btn">
+        <div class="icon-circle">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <span class="action-count">${randomStat()}</span>
+      </div>
+
+      <!-- Share icon (decorative) -->
+      <div class="action-btn">
+        <div class="icon-circle">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </div>
+        <span class="action-count">${randomStat()}</span>
+      </div>
+
+      <!-- Bookmark icon (decorative) -->
+      <div class="action-btn">
+        <div class="icon-circle">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <span class="action-count">${randomStat()}</span>
+      </div>
+
+    `;
+    el.appendChild(sideActions);
+
+    /* ── Post info (username + caption) ─────────────────────────── */
+    const info = document.createElement('div');
+    info.className = 'post-info';
+    info.innerHTML = `
+      <div class="post-username">${escapeHTML(post.username)}</div>
+      <div class="post-caption">${escapeHTML(post.caption)}</div>
+      <div class="post-music">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 18V5l12-2v13"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="16" r="3"/>
+        </svg>
+        original audio · ${escapeHTML(post.name || post.username)}
+      </div>
+    `;
+    el.appendChild(info);
+
+    feed.appendChild(el);
+
+    /* ── Progress dot ───────────────────────────────────────────── */
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (index === 0 ? ' active' : '');
+    dot.dataset.index = index;
+    dot.addEventListener('click', () => scrollToPost(index));
+    dotsWrapper.appendChild(dot);
+  });
+
+
+  /* ================================================================
+     INTERSECTION OBSERVER — auto-play visible video, pause others
+     ================================================================ */
+
+  let currentIndex = 0;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const video = entry.target.querySelector('video');
+      if (!video) return;
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+        /* This post is fully in view — play it */
+        video.play().catch(() => {
+          /* Autoplay blocked by browser — that's fine, user can press play */
+        });
+        const idx = parseInt(entry.target.dataset.index, 10);
+        currentIndex = idx;
+        updateDots(idx);
+      } else {
+        /* Out of view — pause and reset */
+        video.pause();
+      }
+    });
+  }, {
+    root:       feed,
+    threshold:  0.6    /* post must be 60% visible to trigger play */
+  });
+
+  /* Observe every post */
+  feed.querySelectorAll('.post').forEach(post => observer.observe(post));
+
+
+  /* ================================================================
+     KEYBOARD NAVIGATION — arrow keys scroll between posts
+     ================================================================ */
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      scrollToPost(currentIndex + 1);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      scrollToPost(currentIndex - 1);
+    }
+  });
+
+
+  /* ================================================================
+     MOUSE WHEEL NAVIGATION — wheel scrolls between posts
+     ================================================================ */
+  let wheelCooldown = false;
+  feed.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (wheelCooldown) return;
+    wheelCooldown = true;
+    if (e.deltaY > 0) {
+      scrollToPost(currentIndex + 1);
+    } else {
+      scrollToPost(currentIndex - 1);
+    }
+    setTimeout(() => { wheelCooldown = false; }, 600);
+  }, { passive: false });
+
+
+  /* ================================================================
+     TOUCH / SWIPE SUPPORT — swipe up/down between posts
+     ================================================================ */
+  let touchStartY = 0;
+  feed.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  feed.addEventListener('touchend', (e) => {
+    const delta = touchStartY - e.changedTouches[0].clientY;
+    if (Math.abs(delta) > 40) {   /* minimum swipe distance: 40px */
+      scrollToPost(delta > 0 ? currentIndex + 1 : currentIndex - 1);
+    }
+  }, { passive: true });
+
+
+  /* ================================================================
+     HELPERS
+     ================================================================ */
+
+  /** Scroll feed to a specific post index */
+  function scrollToPost(index) {
+    const total = posts.length;
+    if (index < 0 || index >= total) return;
+    const posts_els = feed.querySelectorAll('.post');
+    posts_els[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Update which progress dot is highlighted */
+  function updateDots(index) {
+    dotsWrapper.querySelectorAll('.dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === index);
+    });
+  }
+
+  /** Sanitise text so user-supplied strings can't inject HTML */
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+</script>
+</body>
+</html>
